@@ -1,4 +1,5 @@
 # rcask
+![crates.io](https://img.shields.io/crates/v/rcask.svg) ![Build Passing](https://github.com/Ashwin-1709/rcask/actions/workflows/rust.yml/badge.svg)
 
 `rcask` is a [bitcask](https://docs.riak.com/riak/kv/2.2.3/setup/planning/backend/bitcask/index.html) inspired, rust-based in-memory key-value store built on the core concepts of **log-structured storage engines**.
 
