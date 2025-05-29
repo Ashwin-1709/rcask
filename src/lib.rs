@@ -5,7 +5,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 /// RCask is a wrapper around the KVStore which manages the disk storage size does not exceed a limit.
-/// This is done using an asynchronous compaction process which is fired after a certain number of writes
+/// This is done using a blocking compaction process which is fired after a certain number of writes
 /// to the log file.
 pub struct RCask {
     directory: String,
