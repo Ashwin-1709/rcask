@@ -1,6 +1,14 @@
 [package]
-name = "rstore"
+name = "rcask"
 version = "0.1.0"
 edition = "2021"
+authors = ["Ashwin Pugalia"]
+description = "Bitcask inspired in-memory log structured hash table."
+license = "MIT"
+repository = "https://github.com/Ashwin-1709/rcask"
+homepage = "https://github.com/Ashwin-1709/rcask"
+readme = "README.md"
+keywords = ["key-store", "hash-table", "log-structured", "bitcask"]
+categories = ["caching", "data-structures", "algorithms"]
 
 [dependencies]

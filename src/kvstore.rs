@@ -4,9 +4,11 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::vec;
 
+/// A single key-value store that persists data to a file.
 pub struct KVStore {
     index: HashMap<String, u64>,
     file: File,
+    pub path: String,
 }
 
 impl KVStore {
@@ -24,11 +26,29 @@ impl KVStore {
         let mut store = KVStore {
             index: HashMap::new(),
             file: file,
+            path: path.to_string_lossy().to_string(),
         };
 
         store.load()?;
 
         return Ok(store);
+    }
+
+    pub fn get_all_key_values(&mut self) -> io::Result<HashMap<String, Vec<u8>>> {
+        let mut entries = HashMap::new();
+        // Clone keys to avoid borrowing issues while calling get_value_bytes
+        let keys: Vec<String> = self.index.keys().cloned().collect();
+
+        for key in keys {
+            // We read the value for each key using its offset.
+            // This ensures we get the *latest* value according to the index.
+            if let Some(value_bytes) = self.get_value_bytes(&key)? {
+                entries.insert(key, value_bytes);
+            }
+            // We ignore keys that might exist in the index but fail to read,
+            // though this indicates potential issues.
+        }
+        Ok(entries)
     }
 
     /// Rebuilds the in-memory index by reading through the entire file.
@@ -117,16 +137,25 @@ impl KVStore {
         let value_bytes = value.as_ref();
 
         // Write key length (u64)
-        self.file
-            .write_all(&(key_bytes.len() as u64).to_le_bytes())?;
-        // Write key bytes
-        self.file.write_all(key_bytes)?;
+        // Helper closure to retry write_all up to 3 times
+        let mut retry_write = |buf: &[u8]| -> io::Result<()> {
+            let mut attempts = 0;
+            loop {
+                match self.file.write_all(buf) {
+                    Ok(_) => return Ok(()),
+                    Err(_) if attempts < 2 => {
+                        attempts += 1;
+                        continue;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+        };
 
-        // Write value length (u64)
-        self.file
-            .write_all(&(value_bytes.len() as u64).to_le_bytes())?;
-        // Write value bytes
-        self.file.write_all(value_bytes)?;
+        retry_write(&(key_bytes.len() as u64).to_le_bytes())?;
+        retry_write(key_bytes)?;
+        retry_write(&(value_bytes.len() as u64).to_le_bytes())?;
+        retry_write(value_bytes)?;
 
         // Store the offset for the key in the index
         self.index
@@ -169,7 +198,7 @@ impl KVStore {
             Ok(key_bytes) => {
                 let key_str = String::from_utf8(key_bytes)
                     .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-                
+
                 // Validate that the key matches the requested key.
                 if key_str != key {
                     return Err(io::Error::new(
@@ -177,10 +206,10 @@ impl KVStore {
                         "Data corruption: key mismatch",
                     ));
                 }
-            },
+            }
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
                 return Ok(None); // Incomplete entry, return None
-            },
+            }
             Err(e) => return Err(e), // Propagate other I/O errors
         }
 
